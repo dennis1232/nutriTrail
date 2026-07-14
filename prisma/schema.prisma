@@ -1,0 +1,344 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth.js (NextAuth) models — required shape for @auth/prisma-adapter.
+// ---------------------------------------------------------------------------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Domain enums
+// ---------------------------------------------------------------------------
+
+enum UnitSystem {
+  METRIC
+  IMPERIAL
+}
+
+enum AppLocale {
+  EN
+  HE
+}
+
+enum BiologicalSex {
+  MALE
+  FEMALE
+  UNSPECIFIED
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+enum NutritionGoal {
+  MAINTAIN
+  LOSE
+  GAIN
+}
+
+enum MealCategory {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum MealSourceType {
+  MANUAL
+  AI_PHOTO
+  BARCODE
+  SAVED_MEAL
+  COPIED
+}
+
+enum FoodSource {
+  SYSTEM
+  USER
+  BARCODE_EXTERNAL
+  AI_DETECTED
+}
+
+enum AIAnalysisStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum ImageRetentionPreference {
+  KEEP
+  DELETE_AFTER_30_DAYS
+  DELETE_IMMEDIATELY
+}
+
+// ---------------------------------------------------------------------------
+// Users
+// ---------------------------------------------------------------------------
+
+model User {
+  id               String     @id @default(cuid())
+  email            String     @unique
+  emailVerified    DateTime?
+  passwordHash     String?
+  name             String?
+  image            String?
+  preferredLocale  AppLocale  @default(EN)
+  unitSystem       UnitSystem @default(METRIC)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+
+  profile         UserProfile?
+  meals           Meal[]
+  foods           Food[]
+  weightEntries   WeightEntry[]
+  activityEntries ActivityEntry[]
+  savedMeals      SavedMeal[]
+  favoriteFoods   UserFavoriteFood[]
+  aiAnalyses      AIAnalysis[]
+}
+
+model UserProfile {
+  id                     String        @id @default(cuid())
+  userId                 String        @unique
+  birthDate              DateTime?
+  isAdultConfirmed       Boolean       @default(false)
+  biologicalSex          BiologicalSex @default(UNSPECIFIED)
+  heightCm               Float?
+  currentWeightKg        Float?
+  targetWeightKg         Float?
+  activityLevel          ActivityLevel @default(SEDENTARY)
+  nutritionGoal          NutritionGoal @default(MAINTAIN)
+  dailyCalorieTarget     Int
+  proteinTargetGrams     Int
+  carbohydrateTargetGrams Int
+  fatTargetGrams         Int
+  includeActivityCalories Boolean      @default(false)
+  imageRetention         ImageRetentionPreference @default(KEEP)
+  onboardingCompletedAt  DateTime?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Foods
+// ---------------------------------------------------------------------------
+
+model Food {
+  id                    String     @id @default(cuid())
+  ownerId               String?
+  name                  String
+  brand                 String?
+  barcode               String?
+  source                FoodSource @default(USER)
+  caloriesPer100g       Float
+  proteinPer100g        Float
+  carbohydratesPer100g  Float
+  fatPer100g            Float
+  fiberPer100g          Float?
+  servingSizeGrams      Float?
+  servingUnit           String?
+  verified              Boolean    @default(false)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  owner       User?              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  mealItems   MealItem[]
+  favoritedBy UserFavoriteFood[]
+
+  @@index([ownerId])
+  @@index([barcode])
+  @@index([name])
+}
+
+model UserFavoriteFood {
+  userId    String
+  foodId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  food Food @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@id([userId, foodId])
+}
+
+// ---------------------------------------------------------------------------
+// Meals
+// ---------------------------------------------------------------------------
+
+model Meal {
+  id           String         @id @default(cuid())
+  userId       String
+  name         String
+  category     MealCategory
+  consumedAt   DateTime
+  imageUrl     String?
+  notes        String?
+  sourceType   MealSourceType @default(MANUAL)
+  aiAnalysisId String?        @unique
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiAnalysis AIAnalysis? @relation(fields: [aiAnalysisId], references: [id])
+  items      MealItem[]
+
+  @@index([userId, consumedAt])
+}
+
+model MealItem {
+  id            String   @id @default(cuid())
+  mealId        String
+  foodId        String?
+  displayName   String
+  quantity      Float
+  unit          String
+  grams         Float
+  calories      Float
+  protein       Float
+  carbohydrates Float
+  fat           Float
+  aiConfidence  Float?
+  aiAssumptions String[] @default([])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  meal Meal  @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  food Food? @relation(fields: [foodId], references: [id], onDelete: SetNull)
+
+  @@index([mealId])
+}
+
+model SavedMeal {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  category  MealCategory
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items SavedMealItem[]
+
+  @@index([userId])
+}
+
+model SavedMealItem {
+  id            String @id @default(cuid())
+  savedMealId   String
+  foodId        String?
+  displayName   String
+  quantity      Float
+  unit          String
+  grams         Float
+  calories      Float
+  protein       Float
+  carbohydrates Float
+  fat           Float
+
+  savedMeal SavedMeal @relation(fields: [savedMealId], references: [id], onDelete: Cascade)
+
+  @@index([savedMealId])
+}
+
+// ---------------------------------------------------------------------------
+// AI analysis
+// ---------------------------------------------------------------------------
+
+model AIAnalysis {
+  id                  String            @id @default(cuid())
+  userId              String
+  provider            String
+  model               String
+  promptVersion       String
+  status              AIAnalysisStatus  @default(PENDING)
+  sanitizedResponse   Json?
+  generalAssumptions  String[]          @default([])
+  errorMessage        String?
+  createdAt           DateTime          @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meal Meal?
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Progress tracking
+// ---------------------------------------------------------------------------
+
+model WeightEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  weightKg   Float
+  recordedAt DateTime
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, recordedAt])
+}
+
+model ActivityEntry {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  durationMinutes Int
+  caloriesBurned  Int
+  performedAt     DateTime
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, performedAt])
+}
