@@ -5,6 +5,9 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Hosted Postgres (Neon/Supabase) hands out a pooled URL for the app and
+  // a direct URL for migrations. Locally both point at the same database.
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------

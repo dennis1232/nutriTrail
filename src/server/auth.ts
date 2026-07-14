@@ -47,6 +47,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // sessions — JWT works for both providers here.
   session: { strategy: "jwt" },
   secret: env.AUTH_SECRET,
+  // Required when running behind a reverse proxy (Vercel) so Auth.js
+  // accepts the forwarded Host header when building callback URLs.
+  trustHost: true,
   pages: {
     signIn: "/login",
   },

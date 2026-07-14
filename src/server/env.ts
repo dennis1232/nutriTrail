@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  DIRECT_URL: z.string().min(1, "DIRECT_URL is required (same as DATABASE_URL locally)"),
   AUTH_SECRET: z.string().min(1, "AUTH_SECRET is required"),
   AUTH_URL: z.string().url().optional(),
 
