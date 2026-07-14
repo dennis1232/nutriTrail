@@ -1,9 +1,13 @@
 import { env } from "@/server/env";
 import { LocalStorageProvider } from "./local-storage-provider";
 import { S3StorageProvider } from "./s3-storage-provider";
+import { VercelBlobStorageProvider } from "./vercel-blob-storage-provider";
 import type { StorageProvider } from "./storage-provider";
 
 export function getStorageProvider(): StorageProvider {
+  if (env.STORAGE_PROVIDER === "vercel-blob") {
+    return new VercelBlobStorageProvider();
+  }
   if (env.STORAGE_PROVIDER === "s3") {
     return new S3StorageProvider({
       bucket: env.STORAGE_S3_BUCKET,

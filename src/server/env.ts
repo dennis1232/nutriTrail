@@ -16,7 +16,8 @@ const envSchema = z.object({
   AI_API_KEY: z.string().optional().default(""),
   AI_MODEL: z.string().optional().default("gpt-4o-mini"),
 
-  STORAGE_PROVIDER: z.enum(["local", "s3"]).default("local"),
+  STORAGE_PROVIDER: z.enum(["local", "s3", "vercel-blob"]).default("local"),
+  BLOB_READ_WRITE_TOKEN: z.string().optional().default(""),
   STORAGE_S3_BUCKET: z.string().optional().default(""),
   STORAGE_S3_REGION: z.string().optional().default(""),
   STORAGE_S3_ACCESS_KEY_ID: z.string().optional().default(""),
